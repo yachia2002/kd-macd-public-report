@@ -1,0 +1,1 @@
+# kd-macd-public-report
