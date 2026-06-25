@@ -125,7 +125,7 @@
     }
     .yes { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
     .no { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
-    .strong { color: var(--accent-2); font-weight: 700; }
+    .strong { background: #fee2e2; color: #b91c1c; border-color: #fecaca; box-shadow: 0 0 0 2px rgba(185, 28, 28, .08); }
     .empty { color: var(--muted); padding: 22px; text-align: center; }
     .method {
       display: grid;
@@ -213,7 +213,7 @@
   <header>
     <div class="wrap">
       <h1>KD + MACD 今日選股觀察</h1>
-      <p class="subtitle">更新時間：2026-06-26 00:01。本頁為靜態公開報告，不含系統 log、LINE 資訊或本機路徑。</p>
+      <p class="subtitle">更新時間：2026-06-26 00:08。本頁為靜態公開報告，不含系統 log、LINE 資訊或本機路徑。</p>
     </div>
   </header>
   <main>
@@ -349,7 +349,7 @@
           <td data-label="KD日期">${row.kd}</td>
           <td data-label="MACD日期">${row.macd}</td>
           <td data-label="量能">${badge(row.volume)}</td>
-          <td data-label="KD3強勢">${row.strong ? '<span class="strong">Y</span>' : 'N'}</td>
+          <td data-label="KD3強勢">${row.strong ? '<span class="badge strong">Y</span>' : 'N'}</td>
           <td class="num" data-label="收盤價">${Number(row.close).toFixed(2)}</td>
           <td class="num" data-label="連續天數">${row.streak}</td>
         </tr>
