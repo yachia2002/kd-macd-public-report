@@ -159,7 +159,11 @@
       font-weight: 700;
       cursor: pointer;
     }
-    .chart-button:hover { background: #dbeafe; }    .table-wrap { overflow: auto; max-height: 680px; margin-top: 8px; }
+    .chart-button:hover { background: #dbeafe; }
+    .mobile-chart-cell { display: none; }
+    .mobile-chart { display: none; }
+    .inline-k-chart { display: block; width: 100%; height: 250px; }
+    .table-wrap { overflow: auto; max-height: 680px; margin-top: 8px; }
     @media (max-width: 900px) {
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .toolbar { grid-template-columns: 1fr; align-items: start; }
@@ -224,14 +228,20 @@
       .empty { display: block; padding: 18px; }
       .chart-head { display: block; }
       .chart-title { font-size: 16px; margin-bottom: 4px; }
-      #kChart { min-width: 640px; height: 320px; }    }
+      #kChart { min-width: 640px; height: 320px; }
+      .chart-panel { display: none; }
+      .chart-button { display: none; }
+      .mobile-chart-cell { display: block; padding-top: 10px; }
+      .mobile-chart-cell::before { content: ""; }
+      .mobile-chart { display: block; width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+      .inline-k-chart { min-width: 330px; height: 240px; }    }
   </style>
 </head>
 <body>
   <header>
     <div class="wrap">
       <h1>KD + MACD 今日選股觀察</h1>
-      <p class="subtitle">更新時間：2026-06-26 14:40。本頁為靜態公開報告，不含系統 log、LINE 資訊或本機路徑。</p>
+      <p class="subtitle">更新時間：2026-06-26 14:54。本頁為靜態公開報告，不含系統 log、LINE 資訊或本機路徑。</p>
     </div>
   </header>
   <main>
@@ -319,6 +329,7 @@
     const chartPanel = document.getElementById('chartPanel');
     const chartTitle = document.getElementById('chartTitle');
     const chartSvg = document.getElementById('kChart');
+    const chartBox = document.querySelector('.chart-box');
     let sortKey = 'market';
     let sortDirection = 'asc';
     const controls = ['search', 'market', 'volumeOnly', 'strongOnly', 'minStreak']
@@ -329,45 +340,36 @@
         ? '<span class="badge yes">Y</span>'
         : '<span class="badge no">N</span>';
     }
-
-
-    function priceY(value, minPrice, scale, top) {
-      return top + (maxPricePad - value) * scale;
-    }
-
-    function renderChart(row) {
+    function chartSvgMarkup(row, compact = false) {
       const points = row.chart || [];
-      chartPanel.hidden = false;
-      chartTitle.textContent = `${row.code} ${row.name} 日 K 圖`;
+      const width = compact ? 640 : 760;
+      const height = compact ? 250 : 360;
       if (!points.length) {
-        chartSvg.innerHTML = '<text x="380" y="180" text-anchor="middle" fill="#667085">沒有可用日 K 資料</text>';
-        chartPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return;
+        return `<svg class="inline-k-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="日 K 圖"><text x="${width / 2}" y="${height / 2}" text-anchor="middle" fill="#667085">沒有可用日 K 資料</text></svg>`;
       }
 
-      const width = 760;
-      const height = 360;
-      const left = 54;
-      const right = 18;
-      const top = 18;
-      const priceHeight = 238;
-      const volumeTop = 278;
-      const volumeHeight = 52;
+      const left = compact ? 44 : 54;
+      const right = compact ? 12 : 18;
+      const top = compact ? 14 : 18;
+      const priceHeight = compact ? 150 : 238;
+      const volumeTop = compact ? 184 : 278;
+      const volumeHeight = compact ? 36 : 52;
+      const labelY = compact ? 236 : 348;
       const maxHigh = Math.max(...points.map(p => p.h));
       const minLow = Math.min(...points.map(p => p.l));
       const pricePad = Math.max((maxHigh - minLow) * 0.06, maxHigh * 0.01, 1);
-      window.maxPricePad = maxHigh + pricePad;
+      const maxPricePad = maxHigh + pricePad;
       const minPricePad = minLow - pricePad;
       const scale = priceHeight / Math.max(maxPricePad - minPricePad, 1);
       const maxVol = Math.max(...points.map(p => p.v || 0), 1);
       const slot = (width - left - right) / points.length;
-      const bodyWidth = Math.max(Math.min(slot * 0.58, 8), 3);
+      const bodyWidth = Math.max(Math.min(slot * 0.58, compact ? 6 : 8), compact ? 2 : 3);
       const gridValues = [0, 0.25, 0.5, 0.75, 1].map(r => maxPricePad - (maxPricePad - minPricePad) * r);
 
       const grid = gridValues.map(value => {
         const y = top + (maxPricePad - value) * scale;
         return `<line x1="${left}" y1="${y.toFixed(1)}" x2="${width - right}" y2="${y.toFixed(1)}" stroke="#e5e7eb"/>` +
-          `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="#667085" font-size="11">${value.toFixed(1)}</text>`;
+          `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="#667085" font-size="${compact ? 10 : 11}">${value.toFixed(1)}</text>`;
       }).join('');
 
       const candles = points.map((p, i) => {
@@ -379,24 +381,31 @@
         const up = p.c >= p.o;
         const color = up ? '#dc2626' : '#16a34a';
         const rectY = Math.min(openY, closeY);
-        const rectH = Math.max(Math.abs(openY - closeY), 1.5);
+        const rectH = Math.max(Math.abs(openY - closeY), compact ? 1.2 : 1.5);
         const volH = Math.max((p.v || 0) / maxVol * volumeHeight, 1);
-        const label = i % Math.ceil(points.length / 6) === 0 ? `<text x="${x.toFixed(1)}" y="348" text-anchor="middle" fill="#667085" font-size="10">${p.d}</text>` : '';
+        const labelEvery = compact ? Math.ceil(points.length / 4) : Math.ceil(points.length / 6);
+        const label = i % labelEvery === 0 ? `<text x="${x.toFixed(1)}" y="${labelY}" text-anchor="middle" fill="#667085" font-size="${compact ? 9 : 10}">${p.d}</text>` : '';
         return `<line x1="${x.toFixed(1)}" y1="${highY.toFixed(1)}" x2="${x.toFixed(1)}" y2="${lowY.toFixed(1)}" stroke="${color}" stroke-width="1.2"/>` +
           `<rect x="${(x - bodyWidth / 2).toFixed(1)}" y="${rectY.toFixed(1)}" width="${bodyWidth.toFixed(1)}" height="${rectH.toFixed(1)}" fill="${color}" opacity="0.9"/>` +
           `<rect x="${(x - bodyWidth / 2).toFixed(1)}" y="${(volumeTop + volumeHeight - volH).toFixed(1)}" width="${bodyWidth.toFixed(1)}" height="${volH.toFixed(1)}" fill="${color}" opacity="0.22"/>` + label;
       }).join('');
 
       const last = points[points.length - 1];
-      chartSvg.innerHTML = `
+      return `<svg class="inline-k-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${row.code} 日 K 圖">
         <rect x="0" y="0" width="${width}" height="${height}" fill="#fff"/>
         ${grid}
         <line x1="${left}" y1="${top}" x2="${left}" y2="${top + priceHeight}" stroke="#cbd5e1"/>
         <line x1="${left}" y1="${top + priceHeight}" x2="${width - right}" y2="${top + priceHeight}" stroke="#cbd5e1"/>
-        <text x="${left}" y="${volumeTop - 8}" fill="#667085" font-size="11">成交量</text>
+        <text x="${left}" y="${volumeTop - 8}" fill="#667085" font-size="${compact ? 10 : 11}">成交量</text>
         ${candles}
-        <text x="${width - right}" y="18" text-anchor="end" fill="#18202f" font-size="12" font-weight="700">收 ${Number(last.c).toFixed(2)}</text>
-      `;
+        <text x="${width - right}" y="18" text-anchor="end" fill="#18202f" font-size="${compact ? 11 : 12}" font-weight="700">收 ${Number(last.c).toFixed(2)}</text>
+      </svg>`;
+    }
+
+    function renderChart(row) {
+      chartPanel.hidden = false;
+      chartTitle.textContent = `${row.code} ${row.name} 日 K 圖`;
+      chartBox.innerHTML = chartSvgMarkup(row, false).replace('class="inline-k-chart"', 'id="kChart" class="inline-k-chart"');
       chartPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function render() {
@@ -437,7 +446,7 @@
 
       countEl.textContent = `顯示 ${filtered.length} / ${DATA.length} 檔`;
       if (!filtered.length) {
-        rowsEl.innerHTML = '<tr><td class="empty" colspan="10">沒有符合目前篩選條件的股票。</td></tr>';
+        rowsEl.innerHTML = '<tr><td class="empty" colspan="11">沒有符合目前篩選條件的股票。</td></tr>';
         return;
       }
 
@@ -453,8 +462,13 @@
           <td class="num" data-label="收盤價">${Number(row.close).toFixed(2)}</td>
           <td class="num" data-label="連續天數">${row.streak}</td>
           <td data-label="日K"><button class="chart-button" type="button" data-code="${row.code}">日K</button></td>
+          <td class="mobile-chart-cell"><div class="mobile-chart" data-code="${row.code}"></div></td>
         </tr>
       `).join('');
+      rowsEl.querySelectorAll('.mobile-chart').forEach(el => {
+        const row = DATA.find(item => item.code === el.dataset.code);
+        if (row) el.innerHTML = chartSvgMarkup(row, true);
+      });
     }
 
     controls.forEach(el => el.addEventListener('input', render));
